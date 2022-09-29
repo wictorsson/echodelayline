@@ -20,29 +20,29 @@ EchoDlineAudioProcessor::EchoDlineAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       ), parameters(*this, nullptr, "PARAMETERS", initializeGUI())
+                       ), apvts(*this, nullptr, "apvts", initializeGUI())
 #endif
 {
-    parameters.addParameterListener("mix", this);
-    parameters.addParameterListener("sync", this);
-    parameters.addParameterListener("choice", this);
-    parameters.addParameterListener("delayTime", this);
-    parameters.addParameterListener("feedback", this);
-    parameters.addParameterListener("lp", this);
-    parameters.addParameterListener("hp", this);
-    parameters.addParameterListener("drive", this);
+    apvts.addParameterListener("mix", this);
+    apvts.addParameterListener("sync", this);
+    apvts.addParameterListener("choice", this);
+    apvts.addParameterListener("delayTime", this);
+    apvts.addParameterListener("feedback", this);
+    apvts.addParameterListener("lp", this);
+    apvts.addParameterListener("hp", this);
+    apvts.addParameterListener("drive", this);
 }
 
 EchoDlineAudioProcessor::~EchoDlineAudioProcessor()
 {
-    parameters.removeParameterListener("mix", this);
-    parameters.removeParameterListener("sync", this);
-    parameters.removeParameterListener("choice", this);
-    parameters.removeParameterListener("delayTime", this);
-    parameters.removeParameterListener("feedback", this);
-    parameters.removeParameterListener("lp", this);
-    parameters.removeParameterListener("hp", this);
-    parameters.removeParameterListener("drive", this);
+    apvts.removeParameterListener("mix", this);
+    apvts.removeParameterListener("sync", this);
+    apvts.removeParameterListener("choice", this);
+    apvts.removeParameterListener("delayTime", this);
+    apvts.removeParameterListener("feedback", this);
+    apvts.removeParameterListener("lp", this);
+    apvts.removeParameterListener("hp", this);
+    apvts.removeParameterListener("drive", this);
 }
 juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::initializeGUI()
 {
@@ -258,22 +258,22 @@ void EchoDlineAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 
     //Params
     samplesOfDelay.reset(sampleRate, 0.8f);
-    syncedDelayChoice = setSyncedDelayFromChoice(*parameters.getRawParameterValue("choice"));
-    samplesOfDelay.setTargetValue(*parameters.getRawParameterValue("delayTime"));
+    syncedDelayChoice = setSyncedDelayFromChoice(*apvts.getRawParameterValue("choice"));
+    samplesOfDelay.setTargetValue(*apvts.getRawParameterValue("delayTime"));
     mix.reset(sampleRate, 0.05f);
-    mix.setTargetValue(*parameters.getRawParameterValue("mix")/100);
+    mix.setTargetValue(*apvts.getRawParameterValue("mix")/100);
     feedback.reset(sampleRate, 0.05f);
-    feedback.setTargetValue(*parameters.getRawParameterValue("feedback")/100.0f);
+    feedback.setTargetValue(*apvts.getRawParameterValue("feedback")/100.0f);
     saturationDrive.reset(sampleRate, 0.05f);
-    saturationDrive.setTargetValue(*parameters.getRawParameterValue("drive"));
-    samplesInSec = *parameters.getRawParameterValue("delayTime")/1000.0f;
+    saturationDrive.setTargetValue(*apvts.getRawParameterValue("drive"));
+    samplesInSec = *apvts.getRawParameterValue("delayTime")/1000.0f;
     
     //Filter
     lpFilter.reset();
-    lpFilter.setCutoffFrequency(*parameters.getRawParameterValue("lp"));
+    lpFilter.setCutoffFrequency(*apvts.getRawParameterValue("lp"));
     lpFilter.prepare(spec);
     hpFilter.reset();
-    hpFilter.setCutoffFrequency(*parameters.getRawParameterValue("hp"));
+    hpFilter.setCutoffFrequency(*apvts.getRawParameterValue("hp"));
     hpFilter.prepare(spec);
     lpFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
     hpFilter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
@@ -392,17 +392,22 @@ juce::AudioProcessorEditor* EchoDlineAudioProcessor::createEditor()
 void EchoDlineAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     juce::MemoryOutputStream stream(destData, false);
-    parameters.state.writeToStream(stream);
+    apvts.state.writeToStream(stream);
 }
 
 void EchoDlineAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
+    if (auto* editor = getActiveEditor())
+    {
+        editor->setSize (getEditorWidth(), getEditorHeight());
+    }
+    
     //call the save state
     auto tree = juce::ValueTree::readFromData(data, size_t (sizeInBytes));
     
     if(tree.isValid())
     {
-        parameters.state = tree;
+        apvts.state = tree;
     }
 }
 

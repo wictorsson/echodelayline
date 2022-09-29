@@ -11,17 +11,20 @@
 
 //==============================================================================
 EchoDlineAudioProcessorEditor::EchoDlineAudioProcessorEditor (EchoDlineAudioProcessor& p)
-: AudioProcessorEditor (&p), audioProcessor (p), twoValueSlider(juce::Slider::SliderStyle::TwoValueHorizontal, p.parameters.getParameter("hp"), p.parameters.getParameter("lp")), syncedTimeSlider(p.parameters.getParameter("choice"), ""), timeSlider(p.parameters.getParameter("delayTime"), " ms"), mixSlider(p.parameters.getParameter("mix"), " %"), feedbackSlider(p.parameters.getParameter("feedback"), " %"), driveSlider(p.parameters.getParameter("drive"), ""),syncToggle(p.parameters.getParameter("sync"), "Sync", syncedTimeSlider.slider, timeSlider.slider)
+: AudioProcessorEditor (&p), audioProcessor (p), twoValueSlider(juce::Slider::SliderStyle::TwoValueHorizontal, p.apvts.getParameter("hp"), p.apvts.getParameter("lp")), syncedTimeSlider(p.apvts.getParameter("choice"), ""), timeSlider(p.apvts.getParameter("delayTime"), " ms"), mixSlider(p.apvts.getParameter("mix"), " %"), feedbackSlider(p.apvts.getParameter("feedback"), " %"), driveSlider(p.apvts.getParameter("drive"), ""),syncToggle(p.apvts.getParameter("sync"), "Sync", syncedTimeSlider.slider, timeSlider.slider)
 {
     //BG
     setResizable (true, true);
+    
     const float ratio = 4.0/ 3.0;
+    setSize (p.getEditorWidth(), p.getEditorHeight());
     setResizeLimits (370,  juce::roundToInt (370.0 / ratio),
                          650, juce::roundToInt (650.0 / ratio));
-    getConstrainer()->setFixedAspectRatio (ratio);
-    setSize (400, 400/ratio);
     
-    //Parameters
+    getConstrainer()->setFixedAspectRatio (ratio);
+    
+    
+    //apvts
     for(auto* slider : {&syncedTimeSlider, &timeSlider, &mixSlider, &feedbackSlider, &driveSlider})
     {
         addAndMakeVisible(slider->slider);
@@ -81,6 +84,8 @@ void EchoDlineAudioProcessorEditor::paint (juce::Graphics& g)
 
 void EchoDlineAudioProcessorEditor::resized()
 {
+    audioProcessor.setEditorSize (getWidth(), getHeight());
+    
     juce::Rectangle<int> bounds = getLocalBounds();
     title.setBounds(bounds);
     juce::Rectangle<int> boundsUpper = bounds.removeFromTop(getHeight()/2);

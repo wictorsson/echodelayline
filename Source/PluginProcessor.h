@@ -56,9 +56,28 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    juce::AudioProcessorValueTreeState parameters;
+    juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout initializeGUI();
 
+    // Save and set GUI resize
+    int getEditorWidth()
+    {
+        auto size = apvts.state.getOrCreateChildWithName ("lastSize", nullptr);
+        return size.getProperty ("width", 370);
+    }
+    int getEditorHeight()
+    {
+        const float ratio = 4.0/ 3.0;
+        auto size = apvts.state.getOrCreateChildWithName ("lastSize", nullptr);
+        return size.getProperty ("height", 370.0 / ratio);
+    }
+
+    void setEditorSize (int width, int height)
+    {
+        auto size = apvts.state.getOrCreateChildWithName ("lastSize", nullptr);
+        size.setProperty ("width", width, nullptr);
+        size.setProperty ("height", height, nullptr);
+    }
     
 private:
     
