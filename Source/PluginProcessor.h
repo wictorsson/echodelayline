@@ -59,6 +59,13 @@ public:
     juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout initializeGUI();
 
+    
+    float workOutMS(float sampleRate, float ms)
+    {
+        return((sampleRate / 1000) * ms);
+    }
+    
+    
     // Save and set GUI resize
     int getEditorWidth()
     {
@@ -96,7 +103,6 @@ private:
     bool lpOn{false};
     bool hpOn{false};
     bool saturationOn{false};
-   // float saturationDrive;
     const float piDiv = 2.0f/ juce::MathConstants<float>::pi;
     double mySampleRate{0.0};
     bool syncButton{true};

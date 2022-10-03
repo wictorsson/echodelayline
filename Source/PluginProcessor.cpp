@@ -332,12 +332,12 @@ void EchoDlineAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
             float input = writePtrs[channel][sample];
-            float processedFXSample = input;
-            processFX(channel, processedFXSample);
-            delayLine.pushSample(channel, processedFXSample + feedBackSignals[channel] * smoothedFeedback);
+            delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
             float output = delayLine.popSample(channel, smoothedDelaytime);
             feedBackSignals[channel] = output;
-            output = output * smoothedMix + input * (1.0f - smoothedMix);
+            float processedFXSample = output;
+            processFX(channel, processedFXSample);
+            output = processedFXSample * smoothedMix + input * (1.0f - smoothedMix);
             writePtrs[channel][sample] = output;
         }
     }
