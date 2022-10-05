@@ -255,6 +255,10 @@ void EchoDlineAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     delayLine.reset();
     delayLine.setMaximumDelayInSamples(10*sampleRate);
     delayLine.prepare(spec);
+    d.reset(sampleRate, 0.005f);
+    xFade.reset(sampleRate, 0.002f);
+    xFade.setTargetValue(0.0f);
+    
 
     //Params
     samplesOfDelay.reset(sampleRate, 0.8f);
@@ -323,23 +327,65 @@ void EchoDlineAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     samplesOfDelay.setTargetValue(updateDelayTime());
     
     auto writePtrs = buffer.getArrayOfWritePointers();
+
+   // Octave down
+    if(dFloat == buffer.getNumSamples()*2.5f)
+    {
+        dFloat = 0.0f;
+    }
+    //Octave up
+//    if(dFloat == 0.0f)
+//    {
+//        dFloat = buffer.getNumSamples()*2;
+//    }
+    
+    //Xfade discontinuity, TODO - implement second delay and fade between
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
-        float smoothedDelaytime = samplesOfDelay.getNextValue();
+       // Octave down
+        if(dFloat >= buffer.getNumSamples()*2.3f)
+        {
+            xFade.setTargetValue(0.0f);
+        }
+        else if(dFloat > buffer.getNumSamples() * 0.1f && dFloat < buffer.getNumSamples()*2.3f)
+        {
+            xFade.setTargetValue(1.0f);
+        }
+        
+//        //Octave up
+//        if(dFloat <= buffer.getNumSamples()*0.1f)
+//        {
+//            xFade.setTargetValue(0.0f);
+//        }
+//        else if(dFloat < buffer.getNumSamples() * 1.9f && dFloat > buffer.getNumSamples()*0.1f)
+//        {
+//            xFade.setTargetValue(1.0f);
+//        }
+        
+
+        float smoothedDelaytime = dFloat;
         float smoothedFeedback = feedback.getNextValue();
         float smoothedMix = mix.getNextValue();
-        
+       
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
             float input = writePtrs[channel][sample];
             delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
-            float output = delayLine.popSample(channel, smoothedDelaytime);
+            float output;
+
+            output = delayLine.popSample(channel, smoothedDelaytime);
             feedBackSignals[channel] = output;
             float processedFXSample = output;
             processFX(channel, processedFXSample);
+            processedFXSample = processedFXSample * xFade.getNextValue();
             output = processedFXSample * smoothedMix + input * (1.0f - smoothedMix);
             writePtrs[channel][sample] = output;
         }
+       // Ocatve down
+        dFloat = dFloat + 0.5f;
+        
+        //Ocatve up
+       // dFloat = dFloat - 1.0f;
     }
 }
 

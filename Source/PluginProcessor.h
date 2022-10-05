@@ -94,11 +94,16 @@ private:
     juce::SmoothedValue<float> mix;
     juce::SmoothedValue<float> feedback;
     juce::SmoothedValue<float> saturationDrive;
-
+    juce::LinearSmoothedValue<float> d;
+    juce::LinearSmoothedValue<float> xFade{1};
+    bool fade{true};
+    bool halfNumSamples{true};
+    
     float syncedDelayChoice;
     float samplesInSec;
     juce::LinearSmoothedValue<float> samplesOfDelay;
     double bpm{ 120.0f };
+    float dFloat{0.0f};
 
     bool lpOn{false};
     bool hpOn{false};
