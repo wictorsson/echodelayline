@@ -31,6 +31,7 @@ EchoDlineAudioProcessor::EchoDlineAudioProcessor()
     apvts.addParameterListener("lp", this);
     apvts.addParameterListener("hp", this);
     apvts.addParameterListener("drive", this);
+    apvts.addParameterListener("psInterval", this);
 }
 
 EchoDlineAudioProcessor::~EchoDlineAudioProcessor()
@@ -43,6 +44,7 @@ EchoDlineAudioProcessor::~EchoDlineAudioProcessor()
     apvts.removeParameterListener("lp", this);
     apvts.removeParameterListener("hp", this);
     apvts.removeParameterListener("drive", this);
+    apvts.removeParameterListener("psInterval", this);
 }
 juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::initializeGUI()
 {
@@ -62,6 +64,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::ini
     
     params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"hp",1}, "Low Cut", juce::NormalisableRange<float>(0.0f, 20000.0f, 1.0f, 0.5f), 0.0f));
     params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"drive",1}, "Drive", juce::NormalisableRange<float>(0.0f, 10.0f, 0.1f), 0.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"psInterval",1}, "Pitch Interval", juce::NormalisableRange<float>(-12.0f, 12.0f, 1.0f), 0.0f));
    
    
     return {params.begin(), params.end()};
@@ -70,7 +73,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::ini
 
 void EchoDlineAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue)
 {
-    // Byt ut till newValue
+    // call with fx::paramId och value
     if (parameterID == "mix")
     {
         mix.setTargetValue(newValue/100);
@@ -79,10 +82,12 @@ void EchoDlineAudioProcessor::parameterChanged(const juce::String& parameterID, 
     {
         syncButton = !syncButton;
         delayLine.reset();
+        delayLine2.reset();
     }
     if (parameterID == "choice")
     {
-        syncedDelayChoice = setSyncedDelayFromChoice(newValue);
+        // Multiply with 2 for pitch shift compensation (2x push and pull in delayline)
+        syncedDelayChoice = setSyncedDelayFromChoice(newValue) * 2.0f;
     }
     if (parameterID == "delayTime")
     {
@@ -94,40 +99,22 @@ void EchoDlineAudioProcessor::parameterChanged(const juce::String& parameterID, 
     }
     if (parameterID == "lp")
     {
-        lpFilter.setCutoffFrequency(newValue);
-        if(newValue < 20000)
-        {
-            lpOn = true;
-        }
-        else
-        {
-            lpOn = false;
-        }
+        fxChain.setParameters(Fx::ParameterId::lp,newValue);
+        
     }
     if (parameterID == "hp")
     {
-        hpFilter.setCutoffFrequency(newValue);
+        fxChain.setParameters(Fx::ParameterId::hp,newValue);
     }
-        if(newValue > 0)
-        {
-            hpOn = true;
-        }
-        else
-        {
-            hpOn = false;
-        }
     
     if (parameterID == "drive")
     {
-        saturationDrive = newValue;
-        if(newValue > 0.0f)
-        {
-            saturationOn = true;
-        }
-        else
-        {
-            saturationOn = false;
-        }
+        fxChain.setParameters(Fx::ParameterId::sDrive,newValue);
+    }
+    
+    if (parameterID == "psInterval")
+    {
+        fxChain.setParameters(Fx::ParameterId::psInterval,newValue);
     }
 }
 
@@ -246,8 +233,14 @@ void EchoDlineAudioProcessor::changeProgramName (int index, const juce::String& 
 void EchoDlineAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     mySampleRate = sampleRate;
-    
-    //DSP
+ 
+    fxChain.prepare(sampleRate, getTotalNumInputChannels(), samplesPerBlock);
+    fxChain.setParameters(Fx::ParameterId::sDrive,*apvts.getRawParameterValue("drive"));
+    fxChain.setParameters(Fx::ParameterId::lp,*apvts.getRawParameterValue("lp"));
+    fxChain.setParameters(Fx::ParameterId::hp,*apvts.getRawParameterValue("hp"));
+    fxChain.setParameters(Fx::ParameterId::psInterval,*apvts.getRawParameterValue("psInterval"));
+    //DELAYLINE
+
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
@@ -255,10 +248,9 @@ void EchoDlineAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     delayLine.reset();
     delayLine.setMaximumDelayInSamples(10*sampleRate);
     delayLine.prepare(spec);
-    d.reset(sampleRate, 0.005f);
-    xFade.reset(sampleRate, 0.002f);
-    xFade.setTargetValue(0.0f);
-    
+    delayLine2.reset();
+    delayLine2.setMaximumDelayInSamples(10*sampleRate);
+    delayLine2.prepare(spec);
 
     //Params
     samplesOfDelay.reset(sampleRate, 0.8f);
@@ -268,19 +260,9 @@ void EchoDlineAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     mix.setTargetValue(*apvts.getRawParameterValue("mix")/100);
     feedback.reset(sampleRate, 0.05f);
     feedback.setTargetValue(*apvts.getRawParameterValue("feedback")/100.0f);
-    saturationDrive.reset(sampleRate, 0.05f);
-    saturationDrive.setTargetValue(*apvts.getRawParameterValue("drive"));
     samplesInSec = *apvts.getRawParameterValue("delayTime")/1000.0f;
     
-    //Filter
-    lpFilter.reset();
-    lpFilter.setCutoffFrequency(*apvts.getRawParameterValue("lp"));
-    lpFilter.prepare(spec);
-    hpFilter.reset();
-    hpFilter.setCutoffFrequency(*apvts.getRawParameterValue("hp"));
-    hpFilter.prepare(spec);
-    lpFilter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
-    hpFilter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
+    
 }
 
 void EchoDlineAudioProcessor::releaseResources()
@@ -323,69 +305,40 @@ void EchoDlineAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-   
+    
     samplesOfDelay.setTargetValue(updateDelayTime());
     
     auto writePtrs = buffer.getArrayOfWritePointers();
 
-   // Octave down
-    if(dFloat == buffer.getNumSamples()*2.5f)
-    {
-        dFloat = 0.0f;
-    }
-    //Octave up
-//    if(dFloat == 0.0f)
-//    {
-//        dFloat = buffer.getNumSamples()*2;
-//    }
-    
-    //Xfade discontinuity, TODO - implement second delay and fade between
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
-       // Octave down
-        if(dFloat >= buffer.getNumSamples()*2.3f)
-        {
-            xFade.setTargetValue(0.0f);
-        }
-        else if(dFloat > buffer.getNumSamples() * 0.1f && dFloat < buffer.getNumSamples()*2.3f)
-        {
-            xFade.setTargetValue(1.0f);
-        }
-        
-//        //Octave up
-//        if(dFloat <= buffer.getNumSamples()*0.1f)
-//        {
-//            xFade.setTargetValue(0.0f);
-//        }
-//        else if(dFloat < buffer.getNumSamples() * 1.9f && dFloat > buffer.getNumSamples()*0.1f)
-//        {
-//            xFade.setTargetValue(1.0f);
-//        }
-        
+        fxChain.pitchShiftLFO();
 
-        float smoothedDelaytime = dFloat;
+        float smoothedDelaytime = samplesOfDelay.getNextValue();
         float smoothedFeedback = feedback.getNextValue();
         float smoothedMix = mix.getNextValue();
        
         for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
         {
             float input = writePtrs[channel][sample];
+           
             delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
-            float output;
-
-            output = delayLine.popSample(channel, smoothedDelaytime);
-            feedBackSignals[channel] = output;
-            float processedFXSample = output;
-            processFX(channel, processedFXSample);
-            processedFXSample = processedFXSample * xFade.getNextValue();
-            output = processedFXSample * smoothedMix + input * (1.0f - smoothedMix);
-            writePtrs[channel][sample] = output;
+            
+            // ADJUSTING delay drift (- mySampleRate * 0.05) To compensate for pitch shift delay (50 ms)
+            float output = delayLine.popSample(channel, smoothedDelaytime - mySampleRate * 0.05);
+            //ADD back sample for feedback
+            delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
+            float outputFeedback = delayLine.popSample(channel, smoothedDelaytime);
+            feedBackSignals[channel] = outputFeedback;
+            
+            //APPLY fx
+            float outputFX = output;
+            fxChain.processPitchShift(channel, outputFX);
+            fxChain.processFX(channel, outputFX);
+            
+            float mixedOutput = outputFX * smoothedMix + input * (1.0f - smoothedMix);
+            writePtrs[channel][sample] = mixedOutput;
         }
-       // Ocatve down
-        dFloat = dFloat + 0.5f;
-        
-        //Ocatve up
-       // dFloat = dFloat - 1.0f;
     }
 }
 
@@ -405,23 +358,7 @@ float EchoDlineAudioProcessor::updateDelayTime()
     return (samplesInSec * mySampleRate);
 }
 
-void EchoDlineAudioProcessor::processFX(int channel, float& inSample)
-{
-    if(saturationOn)
-    {
-        inSample = inSample * (1.0F - saturationDrive.getNextValue()/10.0F) + piDiv * std::atanf(inSample * saturationDrive.getNextValue());
-    }
-  
-    if(lpOn)
-    {
-        inSample = lpFilter.processSample(channel, inSample);
-    }
-    if(hpOn)
-    {
-        inSample = hpFilter.processSample(channel, inSample);
-    }
-    
-}
+
 //==============================================================================
 bool EchoDlineAudioProcessor::hasEditor() const
 {

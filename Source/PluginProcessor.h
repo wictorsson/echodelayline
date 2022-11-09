@@ -9,7 +9,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-
+#include "Fx.h"
 //==============================================================================
 /**
 */
@@ -89,35 +89,26 @@ public:
 private:
     
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>delayLine;
-    juce::dsp::StateVariableTPTFilter<float> lpFilter;
-    juce::dsp::StateVariableTPTFilter<float> hpFilter;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>delayLine2;
+
     juce::SmoothedValue<float> mix;
     juce::SmoothedValue<float> feedback;
-    juce::SmoothedValue<float> saturationDrive;
-    juce::LinearSmoothedValue<float> d;
-    juce::LinearSmoothedValue<float> xFade{1};
-    bool fade{true};
-    bool halfNumSamples{true};
-    
+
     float syncedDelayChoice;
     float samplesInSec;
     juce::LinearSmoothedValue<float> samplesOfDelay;
     double bpm{ 120.0f };
     float dFloat{0.0f};
-
-    bool lpOn{false};
-    bool hpOn{false};
-    bool saturationOn{false};
-    const float piDiv = 2.0f/ juce::MathConstants<float>::pi;
+    float dFloat2{0.0f};
     double mySampleRate{0.0};
     bool syncButton{true};
     float feedBackSignals[2] = { 0.0f,0.0f };
-    
+ 
     void parameterChanged(const juce::String& parameterID, float newValue) override;
     float updateDelayTime();
-    void processFX(int channel, float& inSample);
     float setSyncedDelayFromChoice(float choice);
     
+    Fx fxChain;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EchoDlineAudioProcessor)
 };

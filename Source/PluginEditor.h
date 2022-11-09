@@ -29,11 +29,11 @@ public:
 
 private:
     
-    juce::Label hiCutLabel, loCutLabel, feedbackLabel, driveLabel, mixLabel, title;
+    juce::Label hiCutLabel, loCutLabel, feedbackLabel, driveLabel, mixLabel, title, pitchLabel;
     EchoDlineAudioProcessor& audioProcessor;
     MyTwoValueSlider twoValueSlider;
     CustomTwoValSliderLaf twoValLaf;
-    MySlider syncedTimeSlider, timeSlider, mixSlider, feedbackSlider, driveSlider;
+    MySlider syncedTimeSlider, timeSlider, mixSlider, feedbackSlider, driveSlider, pitchIntSlider;
     MyButton syncToggle;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EchoDlineAudioProcessorEditor)
 };

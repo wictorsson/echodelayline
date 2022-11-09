@@ -4,6 +4,10 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginManufacturer="F.W"
               pluginName="F.W Echo Delayline" companyName="F.W">
   <MAINGROUP id="nWu3zA" name="EchoDelayline">
+    <GROUP id="{BDE16EF0-8A19-030A-2105-CD71352AAB58}" name="DSP">
+      <FILE id="Wguuyq" name="Fx.cpp" compile="1" resource="0" file="Source/Fx.cpp"/>
+      <FILE id="u6nrrU" name="Fx.h" compile="0" resource="0" file="Source/Fx.h"/>
+    </GROUP>
     <GROUP id="{A19EFE81-D956-ADB0-BA13-128390F434AA}" name="Custom">
       <FILE id="oV8RaK" name="Laf.cpp" compile="1" resource="0" file="Source/Laf.cpp"/>
       <FILE id="G7An2s" name="Laf.h" compile="0" resource="0" file="Source/Laf.h"/>
