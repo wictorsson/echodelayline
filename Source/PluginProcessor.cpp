@@ -56,7 +56,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::ini
     params.push_back(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"choice",1}, "Delay Time", juce::StringArray{"1/16 triplet", "1/32 dotted","1/16", "1/8 triplet", "1/16 dotted", "1/8", "1/4 triplet", "1/8 dotted","1/4", "1/2 triplet", "1/4 dotted", "1/2","1/1 triplet", "1/2 dotted"} ,7));
    
     // Set to ms 1-4000 ms
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"delayTime", 1},"Delay Time MS",juce::NormalisableRange<float>(1.0f,4000.0f,1.f, 0.5f),375.0f));
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"delayTime", 1},"Delay Time MS",juce::NormalisableRange<float>(50.0f,4000.0f,1.f, 0.5f),375.0f));
     
     params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"feedback",1},"Feedback",juce::NormalisableRange<float>(0.0f,100.0f,1.0f), 20.0f));
     
@@ -86,8 +86,7 @@ void EchoDlineAudioProcessor::parameterChanged(const juce::String& parameterID, 
     }
     if (parameterID == "choice")
     {
-        // Multiply with 2 for pitch shift compensation (2x push and pull in delayline)
-        syncedDelayChoice = setSyncedDelayFromChoice(newValue) * 2.0f;
+        syncedDelayChoice = setSyncedDelayFromChoice(newValue);
     }
     if (parameterID == "delayTime")
     {
@@ -310,35 +309,88 @@ void EchoDlineAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     
     auto writePtrs = buffer.getArrayOfWritePointers();
 
+    int channelLeft = 0;
+    int channelRight = 1;
+    
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
         fxChain.pitchShiftLFO();
-
-        float smoothedDelaytime = samplesOfDelay.getNextValue();
+        
+        float smoothedDelaytime = samplesOfDelay.getNextValue()*2;
         float smoothedFeedback = feedback.getNextValue();
         float smoothedMix = mix.getNextValue();
+        float wetMix = smoothedMix;
+        float dryMix = 1.0 - wetMix;
        
-        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-        {
-            float input = writePtrs[channel][sample];
-           
-            delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
+            float inputLeft = writePtrs[channelLeft][sample];
+            float inputRight = writePtrs[channelRight][sample];
+
+            //If ping pong feed left channel with right ch feedback signal, right ch waits for left feedback
+            delayLine.pushSample(channelLeft, inputLeft + feedBackSignals[channelRight]);
+            delayLine.pushSample(channelRight, feedBackSignals[channelLeft]);
+        
+            // Push and pop delay compensated delay sample (if pitch shift fx)
+            float outputLeft = delayLine.popSample(channelLeft, smoothedDelaytime - (mySampleRate * 0.05)*2 );
+            float outputRight = delayLine.popSample(channelRight, smoothedDelaytime -  (mySampleRate * 0.05)*2);
+
+            // Push and pop feedback samples
+            //If ping pong (feed only input to one channel)
+            delayLine.pushSample(channelLeft, inputLeft + feedBackSignals[channelRight]);
+            delayLine.pushSample(channelRight, feedBackSignals[channelLeft]);
+            float outputLeftFB = delayLine.popSample(channelLeft, smoothedDelaytime);
+            float outputRightFB = delayLine.popSample(channelRight, smoothedDelaytime);
             
-            // ADJUSTING delay drift (- mySampleRate * 0.05) To compensate for pitch shift delay (50 ms)
-            float output = delayLine.popSample(channel, smoothedDelaytime - mySampleRate * 0.05);
-            //ADD back sample for feedback
-            delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
-            float outputFeedback = delayLine.popSample(channel, smoothedDelaytime);
-            feedBackSignals[channel] = outputFeedback;
-            
-            //APPLY fx
-            float outputFX = output;
-            fxChain.processPitchShift(channel, outputFX);
-            fxChain.processFX(channel, outputFX);
-            
-            float mixedOutput = outputFX * smoothedMix + input * (1.0f - smoothedMix);
-            writePtrs[channel][sample] = mixedOutput;
-        }
+            //If ping pong, left is independent from being set to 0, so right ch always gets signal
+            feedBackSignals[channelLeft] = outputLeftFB;
+            feedBackSignals[channelRight] = outputRightFB * smoothedFeedback;
+            //APPLY fx if enabled
+            fxChain.processPitchShift(channelLeft, outputLeft);
+            fxChain.processPitchShift(channelRight, outputRight);
+            fxChain.processFX(channelLeft, outputLeft);
+            fxChain.processFX(channelRight, outputRight);
+
+            inputLeft = dryMix * inputLeft + wetMix * outputLeft;
+            inputRight = dryMix * inputRight + wetMix * outputRight;
+            writePtrs[channelLeft][sample] = inputLeft;
+            writePtrs[channelRight][sample] = inputRight;
+   
+        
+        
+       //TEMP
+//        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+//        {
+//            float input = writePtrs[channel][sample];
+//
+//            delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
+//
+//            // ADJUSTING delay drift (- mySampleRate * 0.05) To compensate for pitch shift delay (50 ms
+//            float output;
+//            if(fxChain.semitones < 0)
+//            {
+//                output = delayLine.popSample(channel, smoothedDelaytime - fxChain.dRate * (mySampleRate * 0.05)*2);
+//            }
+//            else if (fxChain.semitones == 0)
+//            {
+//                output = delayLine.popSample(channel, smoothedDelaytime - (mySampleRate * 0.05)*2);
+//               // output = delayLine.popSample(channel, smoothedDelaytime);
+//            }
+//            else
+//            {
+//                output = delayLine.popSample(channel, smoothedDelaytime + fxChain.dRate * (mySampleRate * 0.05)*2);
+//            }
+//            //ADD back sample for feedback
+//            delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
+//            float outputFeedback = delayLine.popSample(channel, smoothedDelaytime);
+//            feedBackSignals[channel] = outputFeedback;
+//
+//            //APPLY fx
+//            float outputFX = output;
+//            fxChain.processPitchShift(channel, outputFX);
+//            fxChain.processFX(channel, outputFX);
+//
+//            float mixedOutput = outputFX * smoothedMix + input * (1.0f - smoothedMix);
+//            writePtrs[channel][sample] = mixedOutput;
+//        }
     }
 }
 

@@ -34,6 +34,12 @@ public:
     juce::SmoothedValue<float> lpSmoothed;
     juce::SmoothedValue<float> hpSmoothed;
     
+    float semitones;
+    float tr;
+    float dRate;
+    float maxDelay;
+    float mySampleRate;
+    
 private:
     //Pitch shift with delay lines
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>dlPitchShift;
@@ -60,11 +66,7 @@ private:
     bool lpOn{false};
     bool hpOn{true};
     
-    float semitones;
-    float tr;
-    float dRate;
-    float maxDelay;
-    float mySampleRate;
+    
     
     juce::LinearSmoothedValue<float> mute{1};
     bool valuechanged{false};

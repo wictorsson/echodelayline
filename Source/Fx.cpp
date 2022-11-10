@@ -36,15 +36,15 @@ void Fx::prepare(float sampleRate, int numchans, float samplesPerBlock)
     hpFilter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
     
     dlPitchShift.reset();
-    dlPitchShift.setMaximumDelayInSamples(10*sampleRate);
+    dlPitchShift.setMaximumDelayInSamples(mySampleRate * 0.05f);
     dlPitchShift.prepare(spec);
     dlPitchShift2.reset();
-    dlPitchShift2.setMaximumDelayInSamples(10*sampleRate);
+    dlPitchShift2.setMaximumDelayInSamples(mySampleRate * 0.05f);
     dlPitchShift2.prepare(spec);
  
-    xFade.reset(sampleRate, 0.025f);
+    xFade.reset(sampleRate, 0.0025f);
     xFade.setTargetValue(1.0f);
-    xFade2.reset(sampleRate, 0.025f);
+    xFade2.reset(sampleRate, 0.0025f);
     xFade2.setTargetValue(0.0f);
     
     maxDelay = mySampleRate * 0.05f; // Max delay = 50 ms
@@ -80,6 +80,7 @@ void Fx::setParameters(ParameterId paramId, float paramValue)
             delayXfadeBuffer = true;
             semitones = paramValue;
             tr = std::pow(2.0f,semitones/12.0f);
+       
             dRate = 1 - tr;
         
             if(dRate < 0)
@@ -122,11 +123,11 @@ void Fx::pitchShiftLFO()
     if (semitones < 0) // Pitch down
     {
         // RESETTING the time to keep the tempo
-        if(dFloat >= maxDelay)
+        if(dFloat > maxDelay)
         {
             dFloat = 0.0f;
         }
-        if(dFloat2 >= maxDelay)
+        if(dFloat2 > maxDelay)
         {
             dFloat2 = 0.0f;
         }
@@ -149,11 +150,11 @@ void Fx::pitchShiftLFO()
     }
     else if(semitones > 0) // Pitch up
     {
-        if(dFloat <= 0)
+        if(dFloat < 0)
         {
             dFloat = maxDelay;
         }
-        if(dFloat2 <= 0)
+        if(dFloat2 < 0)
         {
             dFloat2 = maxDelay;
         }
@@ -181,6 +182,8 @@ void Fx::pitchShiftLFO()
     {
         dFloat2 = dFloat2 + dRate;
     }
+    
+    
 }
 
 void Fx::processPitchShift(int &channel, float &inSample) {
@@ -198,9 +201,11 @@ void Fx::processPitchShift(int &channel, float &inSample) {
     {
         dlPitchShift.pushSample(channel, inSample);
         dlPitchShift2.pushSample(channel, inSample);
+
         float output = dlPitchShift.popSample(channel, dFloat);
         float output2 = dlPitchShift2.popSample(channel, dFloat2);
-        inSample =  mute.getNextValue() * output * xFade.getNextValue() +  mute.getNextValue()*output2 * xFade2.getNextValue();
+        inSample =  mute.getNextValue() * output * xFade.getNextValue() + mute.getNextValue()*output2 * xFade2.getNextValue();
+
     }
    
 }
