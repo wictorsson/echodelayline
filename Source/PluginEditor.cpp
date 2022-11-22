@@ -11,15 +11,15 @@
 
 //==============================================================================
 EchoDlineAudioProcessorEditor::EchoDlineAudioProcessorEditor (EchoDlineAudioProcessor& p)
-: AudioProcessorEditor (&p), audioProcessor (p), twoValueSlider(juce::Slider::SliderStyle::TwoValueHorizontal, p.apvts.getParameter("hp"), p.apvts.getParameter("lp")), syncedTimeSlider(p.apvts.getParameter("choice"), ""), timeSlider(p.apvts.getParameter("delayTime"), " ms"), mixSlider(p.apvts.getParameter("mix"), " %"), feedbackSlider(p.apvts.getParameter("feedback"), " %"), driveSlider(p.apvts.getParameter("drive"), ""),pitchIntSlider(p.apvts.getParameter("psInterval"),""),syncToggle(p.apvts.getParameter("sync"), "Sync", syncedTimeSlider.slider, timeSlider.slider)
+: AudioProcessorEditor (&p), audioProcessor (p), twoValueSlider(juce::Slider::SliderStyle::TwoValueHorizontal, p.apvts.getParameter("hp"), p.apvts.getParameter("lp")), syncedTimeSlider(p.apvts.getParameter("choice"), ""), timeSlider(p.apvts.getParameter("delayTime"), " ms"), mixSlider(p.apvts.getParameter("mix"), " %"), feedbackSlider(p.apvts.getParameter("feedback"), " %"), driveSlider(p.apvts.getParameter("drive"), ""),pitchIntSlider(p.apvts.getParameter("psInterval"),""),syncToggle(p.apvts.getParameter("sync"), "Sync", syncedTimeSlider.slider, timeSlider.slider), pingpongToggle(p.apvts.getParameter("pingpong"), "Ping Pong"),reverseToggle(p.apvts.getParameter("reverse"), "Reverse")
 {
     //BG
     setResizable (true, true);
     
     const float ratio = 4.0/ 3.0;
     setSize (p.getEditorWidth(), p.getEditorHeight());
-    setResizeLimits (370,  juce::roundToInt (370.0 / ratio),
-                         650, juce::roundToInt (650.0 / ratio));
+    setResizeLimits (450,  juce::roundToInt (450.0 / ratio),
+                         850, juce::roundToInt (850.0 / ratio));
     
     getConstrainer()->setFixedAspectRatio (ratio);
     
@@ -31,8 +31,10 @@ EchoDlineAudioProcessorEditor::EchoDlineAudioProcessorEditor (EchoDlineAudioProc
     }
     timeSlider.slider.setVisible(false);
     
-    addAndMakeVisible(syncToggle.button);
-    addAndMakeVisible(twoValueSlider);
+    addAndMakeVisible(&syncToggle.button);
+    addAndMakeVisible(&pingpongToggle.button);
+    addAndMakeVisible(&reverseToggle.button);
+    addAndMakeVisible(&twoValueSlider);
     twoValueSlider.setLookAndFeel(&twoValLaf);
     
     //Labels
@@ -94,21 +96,22 @@ void EchoDlineAudioProcessorEditor::resized()
     title.setBounds(r.removeFromTop(20).reduced(2));
     auto topSection = r.removeFromTop(r.getHeight() * 0.15);
     auto midSection = r.removeFromTop(r.getHeight() * 0.5);
+    auto hScaler = getHeight() * 0.003;
     
     auto topLeftSection = topSection.removeFromLeft(topSection.getWidth()*0.5);
-    syncToggle.button.setBounds(topLeftSection.reduced(70,5));
+    syncToggle.button.setBounds(topLeftSection.removeFromLeft(topLeftSection.getWidth()*0.3).reduced(10,5));
+    pingpongToggle.button.setBounds(topLeftSection.removeFromLeft(topLeftSection.getWidth()*0.5).reduced(10,5));
+    reverseToggle.button.setBounds(topLeftSection.reduced(10,5));
     
     auto timeSlidersRec = midSection.removeFromLeft(midSection.getWidth()*0.5);
     syncedTimeSlider.slider.setBounds(timeSlidersRec.reduced(5));
     timeSlider.slider.setBounds(timeSlidersRec.reduced(5));
-    pitchIntSlider.slider.setBounds(midSection.removeFromLeft(midSection.getWidth()*0.33).reduced(5,20));
-    driveSlider.slider.setBounds(midSection.removeFromLeft(midSection.getWidth() * 0.5).reduced(5,20));
-    feedbackSlider.slider.setBounds(midSection.reduced(5,20));
+    pitchIntSlider.slider.setBounds(midSection.removeFromLeft(midSection.getWidth()*0.33).reduced(5,25 * hScaler));
+    driveSlider.slider.setBounds(midSection.removeFromLeft(midSection.getWidth() * 0.5).reduced(5,25 * hScaler));
+    feedbackSlider.slider.setBounds(midSection.reduced(5,25 * hScaler));
     
     auto lowLeftSection = r.removeFromLeft(r.getWidth()*0.5);
     twoValueSlider.setBounds(lowLeftSection.reduced(5, lowLeftSection.getHeight()*0.35));
     mixSlider.slider.setBounds(r.reduced(5, lowLeftSection.getHeight() * 0.2));
-    
-
    
 }

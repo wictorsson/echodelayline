@@ -77,6 +77,12 @@ private:
 class MyButton : public juce::TextButton
 {
 public:
+    MyButton(juce::RangedAudioParameter* rap, juce::String buttonName) : button(buttonName), attach(*rap, button, nullptr)
+    {
+        button.setLookAndFeel(&customButton);
+        button.setClickingTogglesState(true);
+
+    }
     MyButton(juce::RangedAudioParameter* rap, juce::String buttonName, juce::Slider& sliderSync, juce::Slider& sliderTime ) : button(buttonName), attach(*rap, button, nullptr)
     
     {

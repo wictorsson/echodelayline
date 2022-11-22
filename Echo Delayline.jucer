@@ -7,6 +7,8 @@
     <GROUP id="{BDE16EF0-8A19-030A-2105-CD71352AAB58}" name="DSP">
       <FILE id="Wguuyq" name="Fx.cpp" compile="1" resource="0" file="Source/Fx.cpp"/>
       <FILE id="u6nrrU" name="Fx.h" compile="0" resource="0" file="Source/Fx.h"/>
+      <FILE id="Pyxk5p" name="DelayLine.cpp" compile="1" resource="0" file="Source/DelayLine.cpp"/>
+      <FILE id="j4BscB" name="DelayLine.h" compile="0" resource="0" file="Source/DelayLine.h"/>
     </GROUP>
     <GROUP id="{A19EFE81-D956-ADB0-BA13-128390F434AA}" name="Custom">
       <FILE id="oV8RaK" name="Laf.cpp" compile="1" resource="0" file="Source/Laf.cpp"/>

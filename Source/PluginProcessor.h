@@ -9,7 +9,8 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "Fx.h"
+#include "DelayLine.h"
+
 //==============================================================================
 /**
 */
@@ -70,13 +71,13 @@ public:
     int getEditorWidth()
     {
         auto size = apvts.state.getOrCreateChildWithName ("lastSize", nullptr);
-        return size.getProperty ("width", 370);
+        return size.getProperty ("width", 450);
     }
     int getEditorHeight()
     {
         const float ratio = 4.0/ 3.0;
         auto size = apvts.state.getOrCreateChildWithName ("lastSize", nullptr);
-        return size.getProperty ("height", 370.0 / ratio);
+        return size.getProperty ("height", 450.0 / ratio);
     }
 
     void setEditorSize (int width, int height)
@@ -86,29 +87,32 @@ public:
         size.setProperty ("height", height, nullptr);
     }
     
+    void setStutter(bool b);
+
+    
 private:
     
-    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>delayLine;
-    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>delayLine2;
+  //  juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>delayLine;
 
     juce::SmoothedValue<float> mix;
     juce::SmoothedValue<float> feedback;
 
-    float syncedDelayChoice;
-    float samplesInSec;
-    juce::LinearSmoothedValue<float> samplesOfDelay;
-    double bpm{ 120.0f };
-    float dFloat{0.0f};
-    float dFloat2{0.0f};
+
     double mySampleRate{0.0};
-    bool syncButton{true};
-    float feedBackSignals[2] = { 0.0f,0.0f };
- 
+
     void parameterChanged(const juce::String& parameterID, float newValue) override;
-    float updateDelayTime();
-    float setSyncedDelayFromChoice(float choice);
+
+     DelayLine delayLine;
+   
+    double stutterLength = 0.0;
+    bool stutterActive = false;
+    int captureBufferIndex = 0;
+    int playBufferIndex = 0;
+    juce::CriticalSection cs;
+    double curSampleRate = 0.0;
     
-    Fx fxChain;
+    float wetMix = mix.getNextValue();
+    float dryMix = 1.0 - wetMix;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EchoDlineAudioProcessor)
 };

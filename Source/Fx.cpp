@@ -11,15 +11,9 @@
 #include "Fx.h"
 
 
-void Fx::prepare(float sampleRate, int numchans, float samplesPerBlock)
+void Fx::prepare(float sampleRate, int numchans, float samplesPerBlock, juce::dsp::ProcessSpec spec)
 {
     mySampleRate = sampleRate;
-    
-    
-    juce::dsp::ProcessSpec spec;
-    spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = samplesPerBlock;
-    spec.numChannels = 2;
     
     saturationDrive.reset(sampleRate, 0.05f);
     lpSmoothed.reset(sampleRate, 0.05f);
@@ -36,15 +30,15 @@ void Fx::prepare(float sampleRate, int numchans, float samplesPerBlock)
     hpFilter.setType(juce::dsp::StateVariableTPTFilterType::highpass);
     
     dlPitchShift.reset();
-    dlPitchShift.setMaximumDelayInSamples(mySampleRate * 0.05f);
+    dlPitchShift.setMaximumDelayInSamples(mySampleRate * 10);
     dlPitchShift.prepare(spec);
     dlPitchShift2.reset();
-    dlPitchShift2.setMaximumDelayInSamples(mySampleRate * 0.05f);
+    dlPitchShift2.setMaximumDelayInSamples(mySampleRate * 10);
     dlPitchShift2.prepare(spec);
  
-    xFade.reset(sampleRate, 0.0025f);
+    xFade.reset(sampleRate, 0.0625f);
     xFade.setTargetValue(1.0f);
-    xFade2.reset(sampleRate, 0.0025f);
+    xFade2.reset(sampleRate, 0.0625f);
     xFade2.setTargetValue(0.0f);
     
     maxDelay = mySampleRate * 0.05f; // Max delay = 50 ms
@@ -80,9 +74,9 @@ void Fx::setParameters(ParameterId paramId, float paramValue)
             delayXfadeBuffer = true;
             semitones = paramValue;
             tr = std::pow(2.0f,semitones/12.0f);
-       
+            
             dRate = 1 - tr;
-        
+            
             if(dRate < 0)
             {
                 dFloat = 0;
@@ -92,6 +86,15 @@ void Fx::setParameters(ParameterId paramId, float paramValue)
             {
                 dFloat = maxDelay;
                 dFloat2 = maxDelay;
+            }
+            
+            if(semitones != 0)
+            {
+                pitchShiftToggle = true;
+            }
+            else
+            {
+                pitchShiftToggle = false;
             }
             break;
         }
@@ -123,11 +126,11 @@ void Fx::pitchShiftLFO()
     if (semitones < 0) // Pitch down
     {
         // RESETTING the time to keep the tempo
-        if(dFloat > maxDelay)
+        if(dFloat >= maxDelay)
         {
             dFloat = 0.0f;
         }
-        if(dFloat2 > maxDelay)
+        if(dFloat2 >= maxDelay)
         {
             dFloat2 = 0.0f;
         }
@@ -150,11 +153,11 @@ void Fx::pitchShiftLFO()
     }
     else if(semitones > 0) // Pitch up
     {
-        if(dFloat < 0)
+        if(dFloat <= 0)
         {
             dFloat = maxDelay;
         }
-        if(dFloat2 < 0)
+        if(dFloat2 <= 0)
         {
             dFloat2 = maxDelay;
         }
@@ -169,7 +172,7 @@ void Fx::pitchShiftLFO()
             xFade.setTargetValue(1.0f);
             xFade2.setTargetValue(0.0f);
         }
-        
+       
         if(dFloat < (maxDelay) * 0.5f )
         {
             delayXfadeBuffer = false;
@@ -178,6 +181,7 @@ void Fx::pitchShiftLFO()
  
     dFloat = dFloat + dRate;
    
+    //Offset buffer 2
     if(!delayXfadeBuffer)
     {
         dFloat2 = dFloat2 + dRate;
@@ -205,7 +209,6 @@ void Fx::processPitchShift(int &channel, float &inSample) {
         float output = dlPitchShift.popSample(channel, dFloat);
         float output2 = dlPitchShift2.popSample(channel, dFloat2);
         inSample =  mute.getNextValue() * output * xFade.getNextValue() + mute.getNextValue()*output2 * xFade2.getNextValue();
-
     }
    
 }
