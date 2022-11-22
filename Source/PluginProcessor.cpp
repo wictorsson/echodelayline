@@ -32,6 +32,8 @@ EchoDlineAudioProcessor::EchoDlineAudioProcessor()
     apvts.addParameterListener("hp", this);
     apvts.addParameterListener("drive", this);
     apvts.addParameterListener("psInterval", this);
+    apvts.addParameterListener("pingpong", this);
+    apvts.addParameterListener("reverse", this);
 }
 
 EchoDlineAudioProcessor::~EchoDlineAudioProcessor()
@@ -45,6 +47,8 @@ EchoDlineAudioProcessor::~EchoDlineAudioProcessor()
     apvts.removeParameterListener("hp", this);
     apvts.removeParameterListener("drive", this);
     apvts.removeParameterListener("psInterval", this);
+    apvts.removeParameterListener("pingpong", this);
+    apvts.removeParameterListener("reverse", this);
 }
 juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::initializeGUI()
 {
@@ -63,8 +67,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::ini
     params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"lp",1}, "High Cut", juce::NormalisableRange<float>(0.0f, 20000.0f, 1.0f, 0.5f), 20000.0f));
     
     params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"hp",1}, "Low Cut", juce::NormalisableRange<float>(0.0f, 20000.0f, 1.0f, 0.5f), 0.0f));
+    
     params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"drive",1}, "Drive", juce::NormalisableRange<float>(0.0f, 10.0f, 0.1f), 0.0f));
+    
     params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"psInterval",1}, "Pitch Interval", juce::NormalisableRange<float>(-12.0f, 12.0f, 1.0f), 0.0f));
+    
+    params.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"pingpong",1}, "Ping Pong", true));
+    
+    params.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"reverse",1}, "Reverse", true));
    
    
     return {params.begin(), params.end()};
@@ -73,99 +83,61 @@ juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::ini
 
 void EchoDlineAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue)
 {
-    // call with fx::paramId och value
+    
+    //---------------Delayline------------------
     if (parameterID == "mix")
     {
-        mix.setTargetValue(newValue/100);
+        delayLine.setParameters(DelayLine::ParameterId::mix,newValue);
     }
     if (parameterID == "sync")
     {
-        syncButton = !syncButton;
-        delayLine.reset();
-        delayLine2.reset();
+        delayLine.setParameters(DelayLine::ParameterId::sync,newValue);
     }
+    
+    if (parameterID == "pingpong")
+    {
+        delayLine.setParameters(DelayLine::ParameterId::pingpong,newValue);
+    }
+    
     if (parameterID == "choice")
     {
-        syncedDelayChoice = setSyncedDelayFromChoice(newValue);
+        delayLine.setParameters(DelayLine::ParameterId::choice,newValue);
     }
     if (parameterID == "delayTime")
     {
-        samplesInSec = (newValue/1000.0f);
+        delayLine.setParameters(DelayLine::ParameterId::delayTime,newValue);
     }
     if (parameterID == "feedback")
     {
-        feedback.setTargetValue(newValue/100.0f);
+        delayLine.setParameters(DelayLine::ParameterId::feedback,newValue);
     }
+    
+    if (parameterID == "reverse")
+    {
+        delayLine.setParameters(DelayLine::ParameterId::reverse,newValue);
+    }
+    
+    //---------------FX------------------
     if (parameterID == "lp")
     {
-        fxChain.setParameters(Fx::ParameterId::lp,newValue);
-        
+        delayLine.fxChain.setParameters(Fx::ParameterId::lp,newValue);
     }
     if (parameterID == "hp")
     {
-        fxChain.setParameters(Fx::ParameterId::hp,newValue);
+        delayLine.fxChain.setParameters(Fx::ParameterId::hp,newValue);
     }
     
     if (parameterID == "drive")
     {
-        fxChain.setParameters(Fx::ParameterId::sDrive,newValue);
+        delayLine.fxChain.setParameters(Fx::ParameterId::sDrive,newValue);
     }
     
     if (parameterID == "psInterval")
     {
-        fxChain.setParameters(Fx::ParameterId::psInterval,newValue);
+        delayLine.fxChain.setParameters(Fx::ParameterId::psInterval,newValue);
     }
 }
 
-float EchoDlineAudioProcessor::setSyncedDelayFromChoice(float choice)
-{
-    switch((int)choice)
-    {
-        case 0:
-            return 0.16675f;
-            break;
-        case 1:
-            return 0.1875f;
-            break;
-        case 2:
-            return 0.25f;
-            break;
-        case 3:
-            return 0.3335f;
-            break;
-        case 4:
-            return 0.375f;
-            break;
-        case 5:
-            return 0.5f;
-            break;
-        case 6:
-            return 0.667f;
-            break;
-        case 7:
-            return 0.75f;
-            break;
-        case 8:
-            return 1.0f;
-            break;
-        case 9:
-            return 1.334f;
-            break;
-        case 10:
-            return 1.5f;
-            break;
-        case 11:
-            return 2.0f;
-            break;
-        case 12:
-            return 2.668f;
-            break;
-        case 13:
-            return 3.0f;
-            break;
-    }
-    return 0.0f;
-}
 //==============================================================================
 const juce::String EchoDlineAudioProcessor::getName() const
 {
@@ -233,35 +205,33 @@ void EchoDlineAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
 {
     mySampleRate = sampleRate;
  
-    fxChain.prepare(sampleRate, getTotalNumInputChannels(), samplesPerBlock);
-    fxChain.setParameters(Fx::ParameterId::sDrive,*apvts.getRawParameterValue("drive"));
-    fxChain.setParameters(Fx::ParameterId::lp,*apvts.getRawParameterValue("lp"));
-    fxChain.setParameters(Fx::ParameterId::hp,*apvts.getRawParameterValue("hp"));
-    fxChain.setParameters(Fx::ParameterId::psInterval,*apvts.getRawParameterValue("psInterval"));
-    //DELAYLINE
-
+    //CREATE and SEND spec
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = getTotalNumInputChannels();
-    delayLine.reset();
-    delayLine.setMaximumDelayInSamples(10*sampleRate);
-    delayLine.prepare(spec);
-    delayLine2.reset();
-    delayLine2.setMaximumDelayInSamples(10*sampleRate);
-    delayLine2.prepare(spec);
-
-    //Params
-    samplesOfDelay.reset(sampleRate, 0.8f);
-    syncedDelayChoice = setSyncedDelayFromChoice(*apvts.getRawParameterValue("choice"));
-    samplesOfDelay.setTargetValue(*apvts.getRawParameterValue("delayTime"));
-    mix.reset(sampleRate, 0.05f);
-    mix.setTargetValue(*apvts.getRawParameterValue("mix")/100);
-    feedback.reset(sampleRate, 0.05f);
-    feedback.setTargetValue(*apvts.getRawParameterValue("feedback")/100.0f);
-    samplesInSec = *apvts.getRawParameterValue("delayTime")/1000.0f;
     
-    
+    //FX
+    delayLine.fxChain.prepare(sampleRate, getTotalNumInputChannels(), samplesPerBlock, spec);
+    delayLine.fxChain.setParameters(Fx::ParameterId::sDrive,*apvts.getRawParameterValue("drive"));
+    delayLine.fxChain.setParameters(Fx::ParameterId::lp,*apvts.getRawParameterValue("lp"));
+    delayLine.fxChain.setParameters(Fx::ParameterId::hp,*apvts.getRawParameterValue("hp"));
+    delayLine.fxChain.setParameters(Fx::ParameterId::psInterval,*apvts.getRawParameterValue("psInterval"));
+    //DELAYLINE
+    delayLine.prepare(sampleRate, getTotalNumInputChannels(), samplesPerBlock, spec);
+    delayLine.setParameters(DelayLine::ParameterId::choice,*apvts.getRawParameterValue("choice"));
+    delayLine.setParameters(DelayLine::ParameterId::delayTime,*apvts.getRawParameterValue("delayTime"));
+    delayLine.setParameters(DelayLine::ParameterId::mix,*apvts.getRawParameterValue("mix"));
+    delayLine.setParameters(DelayLine::ParameterId::feedback,*apvts.getRawParameterValue("feedback"));
+    delayLine.setParameters(DelayLine::ParameterId::sync,*apvts.getRawParameterValue("sync"));
+    delayLine.setParameters(DelayLine::ParameterId::pingpong,*apvts.getRawParameterValue("pingpong"));
+//    
+//    playBuffer.setSize(2, sampleRate * 5);
+//    captureBuffer.setSize(2, sampleRate * 10);
+//    playBufferIndex = 0;
+//    captureBufferIndex = 0;
+//    curSampleRate = sampleRate;
+//    reversedBuffer.setSize(2, sampleRate * 5);
 }
 
 void EchoDlineAudioProcessor::releaseResources()
@@ -305,109 +275,41 @@ void EchoDlineAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, ju
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
     
-    samplesOfDelay.setTargetValue(updateDelayTime());
+    
+    //UPDATE the delay time here (every buffer)
+    delayLine.setDelayTarget();
+
+    // CHECK if bpm info is available, if not BPM = 120
+    
+    delayLine.curBarPosition = *getPlayHead()->getPosition()->getPpqPosition();
+    
+    if (auto bpmFromHost = *getPlayHead()->getPosition()->getBpm())
+    {
+        delayLine.bpm = bpmFromHost;
+    }
     
     auto writePtrs = buffer.getArrayOfWritePointers();
+  //  auto revPtrs = reversedBuffer.getArrayOfWritePointers();
 
     int channelLeft = 0;
     int channelRight = 1;
     
+    //TEMP
+  
+    //
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
-        fxChain.pitchShiftLFO();
+      
         
-        float smoothedDelaytime = samplesOfDelay.getNextValue()*2;
-        float smoothedFeedback = feedback.getNextValue();
-        float smoothedMix = mix.getNextValue();
-        float wetMix = smoothedMix;
-        float dryMix = 1.0 - wetMix;
-       
-            float inputLeft = writePtrs[channelLeft][sample];
-            float inputRight = writePtrs[channelRight][sample];
+        //SPLIT into channels left and right
+        float& inputLeft = writePtrs[channelLeft][sample];
+        float& inputRight = writePtrs[channelRight][sample];
 
-            //If ping pong feed left channel with right ch feedback signal, right ch waits for left feedback
-            delayLine.pushSample(channelLeft, inputLeft + feedBackSignals[channelRight]);
-            delayLine.pushSample(channelRight, feedBackSignals[channelLeft]);
+        delayLine.processDelay(inputLeft, inputRight);
         
-            // Push and pop delay compensated delay sample (if pitch shift fx)
-            float outputLeft = delayLine.popSample(channelLeft, smoothedDelaytime - (mySampleRate * 0.05)*2 );
-            float outputRight = delayLine.popSample(channelRight, smoothedDelaytime -  (mySampleRate * 0.05)*2);
-
-            // Push and pop feedback samples
-            //If ping pong (feed only input to one channel)
-            delayLine.pushSample(channelLeft, inputLeft + feedBackSignals[channelRight]);
-            delayLine.pushSample(channelRight, feedBackSignals[channelLeft]);
-            float outputLeftFB = delayLine.popSample(channelLeft, smoothedDelaytime);
-            float outputRightFB = delayLine.popSample(channelRight, smoothedDelaytime);
-            
-            //If ping pong, left is independent from being set to 0, so right ch always gets signal
-            feedBackSignals[channelLeft] = outputLeftFB;
-            feedBackSignals[channelRight] = outputRightFB * smoothedFeedback;
-            //APPLY fx if enabled
-            fxChain.processPitchShift(channelLeft, outputLeft);
-            fxChain.processPitchShift(channelRight, outputRight);
-            fxChain.processFX(channelLeft, outputLeft);
-            fxChain.processFX(channelRight, outputRight);
-
-            inputLeft = dryMix * inputLeft + wetMix * outputLeft;
-            inputRight = dryMix * inputRight + wetMix * outputRight;
-            writePtrs[channelLeft][sample] = inputLeft;
-            writePtrs[channelRight][sample] = inputRight;
-   
-        
-        
-       //TEMP
-//        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-//        {
-//            float input = writePtrs[channel][sample];
-//
-//            delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
-//
-//            // ADJUSTING delay drift (- mySampleRate * 0.05) To compensate for pitch shift delay (50 ms
-//            float output;
-//            if(fxChain.semitones < 0)
-//            {
-//                output = delayLine.popSample(channel, smoothedDelaytime - fxChain.dRate * (mySampleRate * 0.05)*2);
-//            }
-//            else if (fxChain.semitones == 0)
-//            {
-//                output = delayLine.popSample(channel, smoothedDelaytime - (mySampleRate * 0.05)*2);
-//               // output = delayLine.popSample(channel, smoothedDelaytime);
-//            }
-//            else
-//            {
-//                output = delayLine.popSample(channel, smoothedDelaytime + fxChain.dRate * (mySampleRate * 0.05)*2);
-//            }
-//            //ADD back sample for feedback
-//            delayLine.pushSample(channel, input + feedBackSignals[channel] * smoothedFeedback);
-//            float outputFeedback = delayLine.popSample(channel, smoothedDelaytime);
-//            feedBackSignals[channel] = outputFeedback;
-//
-//            //APPLY fx
-//            float outputFX = output;
-//            fxChain.processPitchShift(channel, outputFX);
-//            fxChain.processFX(channel, outputFX);
-//
-//            float mixedOutput = outputFX * smoothedMix + input * (1.0f - smoothedMix);
-//            writePtrs[channel][sample] = mixedOutput;
-//        }
+        writePtrs[channelLeft][sample] = inputLeft;
+        writePtrs[channelRight][sample] = inputRight;
     }
-}
-
-float EchoDlineAudioProcessor::updateDelayTime()
-{
-    if(syncButton)
-    {
-        // Check if bpm info is available, if not BPM = 120
-        if (auto bpmFromHost = *getPlayHead()->getPosition()->getBpm())
-        {
-            bpm = bpmFromHost;
-        }
-        float beatsPerSec = bpm / 60;
-        float secPerBeat = 1/beatsPerSec;
-        return (syncedDelayChoice * (secPerBeat * mySampleRate));
-    }
-    return (samplesInSec * mySampleRate);
 }
 
 

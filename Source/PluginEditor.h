@@ -34,7 +34,7 @@ private:
     MyTwoValueSlider twoValueSlider;
     CustomTwoValSliderLaf twoValLaf;
     MySlider syncedTimeSlider, timeSlider, mixSlider, feedbackSlider, driveSlider, pitchIntSlider;
-    MyButton syncToggle;
+    MyButton syncToggle, pingpongToggle, reverseToggle;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EchoDlineAudioProcessorEditor)
 };
 

@@ -10,11 +10,11 @@
 
 #pragma once
 #include <JuceHeader.h>
-//#include "PluginProcessor.h"
+
 class Fx
 {
 public:
-    void prepare(float sampleRate, int numchans, float samplesPerBlock);
+    void prepare(float sampleRate, int numchans, float samplesPerBlock, juce::dsp::ProcessSpec spec);
     
     void processFX(int& channel, float& inSample);
     void processPitchShift(int& channel, float& inSample);
@@ -39,9 +39,9 @@ public:
     float dRate;
     float maxDelay;
     float mySampleRate;
-    
+    bool pitchShiftToggle{false};
 private:
-    //Pitch shift with delay lines
+    //Pitch shift with delay lines, two delaylines to fade between
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>dlPitchShift;
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>dlPitchShift2;
     float dFloat{0.0f};
@@ -66,10 +66,7 @@ private:
     bool lpOn{false};
     bool hpOn{true};
     
-    
-    
     juce::LinearSmoothedValue<float> mute{1};
     bool valuechanged{false};
-  //  float maxDelay = mySampleRate * 0.05f;
-    
+
 };
