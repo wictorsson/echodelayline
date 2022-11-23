@@ -203,8 +203,6 @@ void EchoDlineAudioProcessor::changeProgramName (int index, const juce::String& 
 //==============================================================================
 void EchoDlineAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    mySampleRate = sampleRate;
- 
     //CREATE and SEND spec
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
@@ -225,13 +223,7 @@ void EchoDlineAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     delayLine.setParameters(DelayLine::ParameterId::feedback,*apvts.getRawParameterValue("feedback"));
     delayLine.setParameters(DelayLine::ParameterId::sync,*apvts.getRawParameterValue("sync"));
     delayLine.setParameters(DelayLine::ParameterId::pingpong,*apvts.getRawParameterValue("pingpong"));
-//    
-//    playBuffer.setSize(2, sampleRate * 5);
-//    captureBuffer.setSize(2, sampleRate * 10);
-//    playBufferIndex = 0;
-//    captureBufferIndex = 0;
-//    curSampleRate = sampleRate;
-//    reversedBuffer.setSize(2, sampleRate * 5);
+
 }
 
 void EchoDlineAudioProcessor::releaseResources()

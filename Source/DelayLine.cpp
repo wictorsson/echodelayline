@@ -20,12 +20,10 @@ void DelayLine::prepare(float sampleRate, int numchans, float samplesPerBlock, j
     samplesOfDelay.reset(sampleRate, 0.8f);
     mix.reset(sampleRate, 0.05f);
     feedback.reset(sampleRate, 0.05f);
-    
     reversedBuffer.clear();
     reversedBuffer.setSize(2, sampleRate * 10);
     reversedBuffer2.clear();
     reversedBuffer2.setSize(2, sampleRate * 10);
-   
     prevBarPosition = std::floor(curBarPosition);
 }
 
@@ -37,8 +35,9 @@ void DelayLine::setParameters(ParameterId paramId, float paramValue)
         {
             syncedDelayChoice = setSyncedDelayFromChoice(paramValue);
             changingDelay = true;
-        
+            //
             resetRevBuffers = true;
+            //BOOL needed for extra fadein when reversed
             changingDelayPlaying = true;
         
             break;
@@ -152,6 +151,7 @@ void DelayLine::processDelay(float& inputLeft, float& inputRight)
     dryMix = 1.0 - wetMix;
     //-----------
 
+    //Changing delay time in reversed mode, reset all
     if(resetRevBuffers && resetCounter == 0)
     {
         if(pingpongButtonPressed)
@@ -169,13 +169,10 @@ void DelayLine::processDelay(float& inputLeft, float& inputRight)
         counter = 0;
         revBuffer = 0;
         revBuffer2 = 0;
-        
         delaySecondBuffer = true;
         resetRevBuffers = false;
         changingDelay = false;
-
         clearedBuffer = false;
-        DBG("resetRevBuffers");
     }
     
     
@@ -202,12 +199,13 @@ void DelayLine::processDelay(float& inputLeft, float& inputRight)
     }
 
     resetCounter++;
-
+    
+    //If playhead is moving do this when in reversed mode
     if(!changingDelay && (resetCounter > delayNoSmoothing || (inputLeft == 0.0 && inputRight == 0.0)))
     {
         resetCounter = 0;
     }
-    quarterNote = std::floor(curBarPosition);
+    int quarterNote = std::floor(curBarPosition);
     if(quarterNote > prevBarPosition)
     {
         if(changingDelay)
@@ -218,6 +216,7 @@ void DelayLine::processDelay(float& inputLeft, float& inputRight)
         prevBarPosition = quarterNote;
     }
     
+    //Reset when silent
     if(inputLeft == 0 && inputRight == 0)
     {
             resetCounter = 0;
@@ -344,27 +343,27 @@ void DelayLine::processReversed(float& inputLeft, float& inputRight)
     float outputLeftREV2;
     float outputRightREV2;
     
-    reversedBuffer.setSample(0, smoothedDelaytime*2 - revBuffer, inputLeft);
-    reversedBuffer.setSample(1, smoothedDelaytime*2  - revBuffer, inputRight);
-    reversedBuffer2.setSample(0, smoothedDelaytime*2 - revBuffer2, inputLeft);
-    reversedBuffer2.setSample(1, smoothedDelaytime*2  - revBuffer2, inputRight);
+    reversedBuffer.setSample(channelLeft, smoothedDelaytime*2 - revBuffer, inputLeft);
+    reversedBuffer.setSample(channelRight, smoothedDelaytime*2  - revBuffer, inputRight);
+    reversedBuffer2.setSample(channelLeft, smoothedDelaytime*2 - revBuffer2, inputLeft);
+    reversedBuffer2.setSample(channelRight, smoothedDelaytime*2  - revBuffer2, inputRight);
 
     if(pingpongButton)
     {
         counter ++;
         if(counter < delayNoSmoothing)
         {
-            outputLeftREV = reversedBuffer.getSample(0, 0);
-            outputRightREV = reversedBuffer.getSample(1, revBuffer);
-            outputLeftREV2 = reversedBuffer2.getSample(0, 0);
-            outputRightREV2 = reversedBuffer2.getSample(1, revBuffer2);
+            outputLeftREV = reversedBuffer.getSample(channelLeft, 0);
+            outputRightREV = reversedBuffer.getSample(channelRight, revBuffer);
+            outputLeftREV2 = reversedBuffer2.getSample(channelLeft, 0);
+            outputRightREV2 = reversedBuffer2.getSample(channelRight, revBuffer2);
         }
         else
         {
-            outputLeftREV = reversedBuffer.getSample(0, revBuffer);
-            outputRightREV = reversedBuffer.getSample(1, 0);
-            outputLeftREV2 = reversedBuffer2.getSample(0, revBuffer2);
-            outputRightREV2 = reversedBuffer2.getSample(1, 0);
+            outputLeftREV = reversedBuffer.getSample(channelLeft, revBuffer);
+            outputRightREV = reversedBuffer.getSample(channelRight, 0);
+            outputLeftREV2 = reversedBuffer2.getSample(channelLeft, revBuffer2);
+            outputRightREV2 = reversedBuffer2.getSample(channelRight, 0);
         }
         if(counter > delayNoSmoothing * 2)
         {
@@ -373,10 +372,10 @@ void DelayLine::processReversed(float& inputLeft, float& inputRight)
     }
     else
     {
-        outputLeftREV = reversedBuffer.getSample(0, revBuffer);
-        outputRightREV = reversedBuffer.getSample(1, revBuffer);
-        outputLeftREV2 = reversedBuffer2.getSample(0, revBuffer2);
-        outputRightREV2 = reversedBuffer2.getSample(1, revBuffer2);
+        outputLeftREV = reversedBuffer.getSample(channelLeft, revBuffer);
+        outputRightREV = reversedBuffer.getSample(channelRight, revBuffer);
+        outputLeftREV2 = reversedBuffer2.getSample(channelLeft, revBuffer2);
+        outputRightREV2 = reversedBuffer2.getSample(channelRight, revBuffer2);
     }
     //Reset buffers, detect audio input note on, sync to DAW.
     revBuffer ++;
@@ -407,6 +406,7 @@ void DelayLine::processReversed(float& inputLeft, float& inputRight)
     }
     if(inputLeft == 0 && inputRight == 0)
     {
+        //Ping pong counter
         counter = 0;
         
         if(!clearedBuffer)
@@ -418,13 +418,13 @@ void DelayLine::processReversed(float& inputLeft, float& inputRight)
         
 
     }
-
+    //Not silent
     if(inputLeft != 0 || inputRight != 0)
     {
         clearedBuffer = false;
     }
     
-    // Extra long fade when changing delay time in realtime
+    // Extra long fade when changing delay time in realtime, to avoid glitch (garbage)
     int fadeinMultiplyer;
     if(changingDelayPlaying)
     {
@@ -436,6 +436,9 @@ void DelayLine::processReversed(float& inputLeft, float& inputRight)
     }
 
    // FADING both buffers start and end
+    int fadelenSamples = 500;
+    float fadegain = 1.0f;
+    float fadegain2 = 1.0f;
     if (revBuffer < delayNoSmoothing + fadelenSamples && revBuffer >delayNoSmoothing)
     {
         
@@ -474,16 +477,15 @@ void DelayLine::processReversed(float& inputLeft, float& inputRight)
     float outputRightF = delayLine.popSample(channelRight, smoothedDelaytime);
     feedBackSignals[channelLeft] = pingpongButton ? outputLeftF * smoothedFeedback : outputLeftF;
     feedBackSignals[channelRight] = outputRightF;
-    //Ping pong is actually autopannig the reversed signal, ffedback goes to another delayline
-    
-    
-
+    //Ping pong is actually autopannig the reversed signal, feedback goes to another delayline
+    // AVOID glitch in the detail while changing delay time
     if(changingDelay)
     {
         inputLeft = dryMix * dryInputL + (wetMix * ( outputLeftREV*fadegain + outputLeftREV2*fadegain2)+ wetMix * outputLeftF)*0;
         inputRight = dryMix * dryInputR + (wetMix * ( outputRightREV*fadegain + outputRightREV2*fadegain2) + wetMix * outputRightF)*0;
-        
-    }else
+
+    }
+    else
     {
         inputLeft = dryMix * dryInputL + wetMix * ( outputLeftREV*fadegain + outputLeftREV2*fadegain2)+ wetMix * outputLeftF;
         inputRight = dryMix * dryInputR + wetMix * ( outputRightREV*fadegain + outputRightREV2*fadegain2) + wetMix * outputRightF;

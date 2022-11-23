@@ -87,32 +87,11 @@ public:
         size.setProperty ("height", height, nullptr);
     }
     
-    void setStutter(bool b);
-
-    
 private:
-    
-  //  juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>delayLine;
-
-    juce::SmoothedValue<float> mix;
-    juce::SmoothedValue<float> feedback;
-
-
-    double mySampleRate{0.0};
 
     void parameterChanged(const juce::String& parameterID, float newValue) override;
-
-     DelayLine delayLine;
-   
-    double stutterLength = 0.0;
-    bool stutterActive = false;
-    int captureBufferIndex = 0;
-    int playBufferIndex = 0;
-    juce::CriticalSection cs;
-    double curSampleRate = 0.0;
+    DelayLine delayLine;
     
-    float wetMix = mix.getNextValue();
-    float dryMix = 1.0 - wetMix;
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EchoDlineAudioProcessor)
 };

@@ -83,9 +83,7 @@ EchoDlineAudioProcessorEditor::~EchoDlineAudioProcessorEditor()
 void EchoDlineAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
-    
     g.fillAll (juce::Colour::fromFloatRGBA (0.08f, 0.08f, 0.08f, 1.0f));
-   
 }
 
 void EchoDlineAudioProcessorEditor::resized()
