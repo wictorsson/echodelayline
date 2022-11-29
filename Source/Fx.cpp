@@ -9,7 +9,7 @@
 */
 
 #include "Fx.h"
-
+#include "DelayLine.h"
 
 void Fx::prepare(float sampleRate, int numchans, float samplesPerBlock, juce::dsp::ProcessSpec spec)
 {
@@ -18,6 +18,7 @@ void Fx::prepare(float sampleRate, int numchans, float samplesPerBlock, juce::ds
     saturationDrive.reset(sampleRate, 0.05f);
     lpSmoothed.reset(sampleRate, 0.05f);
     hpSmoothed.reset(sampleRate, 0.05f);
+    flutterDial.reset(sampleRate, 0.5f);
 
     mute.reset(sampleRate, 0.60f);
    
@@ -35,12 +36,18 @@ void Fx::prepare(float sampleRate, int numchans, float samplesPerBlock, juce::ds
     dlPitchShift2.reset();
     dlPitchShift2.setMaximumDelayInSamples(mySampleRate * 10);
     dlPitchShift2.prepare(spec);
+    
+    dlFlutter.reset();
+    dlFlutter.setMaximumDelayInSamples(mySampleRate * 10);
+    dlFlutter.prepare(spec);
  
     xFade.reset(sampleRate, 0.0625f);
     xFade.setTargetValue(1.0f);
     xFade2.reset(sampleRate, 0.0625f);
     xFade2.setTargetValue(0.0f);
     
+    samplesOfDelayFluttSmooth.reset(sampleRate, 0.8f);
+  
     maxDelay = mySampleRate * 0.05f; // Max delay = 50 ms
 }
 
@@ -98,6 +105,13 @@ void Fx::setParameters(ParameterId paramId, float paramValue)
             }
             break;
         }
+        case Fx::ParameterId::flutter:
+        {
+            settingFlutter = true;
+            flutterDial.setTargetValue(paramValue*0.03);
+        
+            break;
+        }
     }
 }
 
@@ -121,17 +135,67 @@ void Fx::processFX(int& channel, float &inSample)
     }
 }
 
+void Fx::processFlutter( float& inSample, float& inSampleRight)
+{
+    //LFO
+    auto rateRandomInt = juce::Random::getSystemRandom().nextInt (65) + 35;
+    float tempRate = rateRandomInt;
+    if(flutterRateConv > 0)
+    {
+        settingFlutter = true;
+    }
+    else
+    {
+        settingFlutter = false;
+    }
+    if(flutterRate <= mySampleRate*0.1 && !lfoDown)
+    {
+        rate = tempRate;
+    }
+    else if(flutterRate >= mySampleRate*0.1)
+    {
+        lfoDown = true;
+        rate = -tempRate;
+    }
+    flutterRate = flutterRate + rate;
+    flutterRateConv = flutterRate/mySampleRate*flutterDial.getNextValue();
+
+    if(flutterRate <= 0)
+    {
+        lfoDown = false;
+    }
+ 
+    float samplesOfDelay = samplesOfDelayFluttSmooth.getNextValue();
+  //  DBG(dlFlutter.getMaximumDelayInSamples());
+    if(samplesOfDelay < 1 || samplesOfDelay >= mySampleRate * 8)
+    {
+        samplesOfDelay = 1;
+    }
+    dlFlutter.pushSample(0, inSample );
+    dlFlutter.pushSample(1, inSampleRight );
+        
+    float outputLeftFlutter = dlFlutter.popSample(0, samplesOfDelay);
+    float outputRightFlutter = dlFlutter.popSample(1, samplesOfDelay);
+        
+    inSample = outputLeftFlutter;
+    inSampleRight = outputRightFlutter;
+}
+
+
 void Fx::pitchShiftLFO()
 {
     if (semitones < 0) // Pitch down
     {
         // RESETTING the time to keep the tempo
+      
         if(dFloat >= maxDelay)
         {
+            
             dFloat = 0.0f;
         }
         if(dFloat2 >= maxDelay)
         {
+           
             dFloat2 = 0.0f;
         }
         // APPLY crossfade
@@ -161,7 +225,7 @@ void Fx::pitchShiftLFO()
         {
             dFloat2 = maxDelay;
         }
-        
+        // APPLY crossfade
         if(dFloat < maxDelay/2.0f)
         {
             xFade.setTargetValue(0.0f);
@@ -178,16 +242,12 @@ void Fx::pitchShiftLFO()
             delayXfadeBuffer = false;
         }
     }
- 
     dFloat = dFloat + dRate;
-   
     //Offset buffer 2
     if(!delayXfadeBuffer)
     {
         dFloat2 = dFloat2 + dRate;
     }
-    
-    
 }
 
 void Fx::processPitchShift(int &channel, float &inSample) {
@@ -210,11 +270,13 @@ void Fx::processPitchShift(int &channel, float &inSample) {
         float output2 = dlPitchShift2.popSample(channel, dFloat2);
         inSample =  mute.getNextValue() * output * xFade.getNextValue() + mute.getNextValue()*output2 * xFade2.getNextValue();
     }
-   
 }
 
-
-
+void Fx::updateDelayTime()
+{
+    currentDelayTime2 = flutterRateConv*mySampleRate;
+    samplesOfDelayFluttSmooth.setTargetValue(currentDelayTime2);
+}
 
 
 

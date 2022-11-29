@@ -18,13 +18,15 @@ public:
     
     void processFX(int& channel, float& inSample);
     void processPitchShift(int& channel, float& inSample);
-
+    void processFlutter( float& inSample,  float& inSampleRight);
+    void updateDelayTime();
     enum class ParameterId
     {
         sDrive,
         lp,
         hp,
-        psInterval
+        psInterval,
+        flutter
     };
     
     void setParameters(ParameterId paramId, float paramValue);
@@ -33,10 +35,16 @@ public:
     juce::SmoothedValue<float> saturationDrive;
     juce::SmoothedValue<float> lpSmoothed;
     juce::SmoothedValue<float> hpSmoothed;
+    juce::SmoothedValue<float> flutterDial;
+    juce::LinearSmoothedValue<float> samplesOfDelayFluttSmooth;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>dlFlutter;
     
     float semitones;
     float tr;
     float dRate;
+    float flutterRate;
+    float flutterRateConv;
+    bool settingFlutter;
     float maxDelay;
     float mySampleRate;
     bool pitchShiftToggle{false};
@@ -44,6 +52,8 @@ private:
     //Pitch shift with delay lines, two delaylines to fade between
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>dlPitchShift;
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>dlPitchShift2;
+    
+    
     float dFloat{0.0f};
     float dFloat2{0.0f};
     bool delayXfadeBuffer{true};
@@ -59,7 +69,8 @@ private:
     
     const float piDiv = 2.0f/ juce::MathConstants<float>::pi;
     bool saturationOn{false};
-    
+    bool lfoDown;
+    float rate;
     //Filters
     juce::dsp::StateVariableTPTFilter<float> lpFilter;
     juce::dsp::StateVariableTPTFilter<float> hpFilter;
@@ -68,5 +79,6 @@ private:
     
     juce::LinearSmoothedValue<float> mute{1};
     bool valuechanged{false};
+    float currentDelayTime2;
 
 };

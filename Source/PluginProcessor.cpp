@@ -34,6 +34,7 @@ EchoDlineAudioProcessor::EchoDlineAudioProcessor()
     apvts.addParameterListener("psInterval", this);
     apvts.addParameterListener("pingpong", this);
     apvts.addParameterListener("reverse", this);
+    apvts.addParameterListener("flutter", this);
 }
 
 EchoDlineAudioProcessor::~EchoDlineAudioProcessor()
@@ -49,6 +50,7 @@ EchoDlineAudioProcessor::~EchoDlineAudioProcessor()
     apvts.removeParameterListener("psInterval", this);
     apvts.removeParameterListener("pingpong", this);
     apvts.removeParameterListener("reverse", this);
+    apvts.removeParameterListener("flutter", this);
 }
 juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::initializeGUI()
 {
@@ -76,6 +78,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout EchoDlineAudioProcessor::ini
     
     params.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"reverse",1}, "Reverse", true));
    
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"flutter",1}, "Flutter", juce::NormalisableRange<float>(0.0f, 10.0f, 0.1f), 0.0f));
    
     return {params.begin(), params.end()};
 
@@ -135,6 +138,11 @@ void EchoDlineAudioProcessor::parameterChanged(const juce::String& parameterID, 
     if (parameterID == "psInterval")
     {
         delayLine.fxChain.setParameters(Fx::ParameterId::psInterval,newValue);
+    }
+    
+    if (parameterID == "flutter")
+    {
+        delayLine.fxChain.setParameters(Fx::ParameterId::flutter,newValue);
     }
 }
 

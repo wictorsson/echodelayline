@@ -29,11 +29,11 @@ public:
 
 private:
     
-    juce::Label hiCutLabel, loCutLabel, feedbackLabel, driveLabel, mixLabel, title, pitchLabel;
+    juce::Label hiCutLabel, loCutLabel, feedbackLabel, driveLabel, mixLabel, title, pitchLabel, flutterLabel;
     EchoDlineAudioProcessor& audioProcessor;
     MyTwoValueSlider twoValueSlider;
     CustomTwoValSliderLaf twoValLaf;
-    MySlider syncedTimeSlider, timeSlider, mixSlider, feedbackSlider, driveSlider, pitchIntSlider;
+    MySlider syncedTimeSlider, timeSlider, mixSlider, feedbackSlider, driveSlider, pitchIntSlider, flutterSlider;
     MyButton syncToggle, pingpongToggle, reverseToggle;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EchoDlineAudioProcessorEditor)
 };

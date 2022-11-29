@@ -38,9 +38,11 @@ public:
     void setParameters(ParameterId paramId, float paramValue);
     void setDelayTarget();
     float updateDelayTime();
+
     float setSyncedDelayFromChoice(float choice);
     float curBarPosition;
-    float prevBarPosition;
+ 
+    double startBPM;
     double bpm{ 120.0f };
     bool pingpongButton{false};
     bool syncButton{true};
@@ -49,6 +51,7 @@ public:
     int delayNoSmoothing;
     Fx fxChain;
     juce::LinearSmoothedValue<float> samplesOfDelay;
+    int prevBar;
     
     juce::AudioBuffer<float> reversedBuffer;
     juce::AudioBuffer<float> reversedBuffer2;
@@ -56,6 +59,7 @@ public:
     
 private:
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>delayLine;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear>delayLineRev;
     juce::SmoothedValue<float> mix;
     juce::SmoothedValue<float> feedback;
     float smoothedFeedback;
@@ -65,25 +69,24 @@ private:
     float samplesInSec;
     float feedBackSignals[2] = { 0.0f,0.0f };
     float feedBackSignals2[2] = { 0.0f,0.0f };
-    float revBuffer{0.0};
-    float revBuffer2{0.0};
+    float revBuffer{1.0};
     
     double mySampleRate{0.0};
-    
+
+    juce::SmoothedValue<float> fadeFrontBuffGain;
+    juce::SmoothedValue<float> fadeRevBuffGain;
+    int silentTimer;
     int counter{0};
     int resetCounter{0};
+    int resetCounter2{0};
     int channelLeft = 0;
     int channelRight = 1;
+    int prevBarPos;
     
-    bool resetRevBuffers;
     bool changingDelay;
-    bool changingDelayPlaying;
-    bool delaySecondBuffer{true};
-    bool playDelayBuffer;
-    bool clearedBuffer;
-    bool pingpongButtonPressed;
-    bool clearedBuffer1;
-    bool clearedBuffer2;
+    bool reverseTransition;
+    bool flutter;
+    juce::SmoothedValue<float> delaySwitch;
 
 };
 

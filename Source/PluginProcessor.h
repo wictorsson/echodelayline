@@ -71,13 +71,13 @@ public:
     int getEditorWidth()
     {
         auto size = apvts.state.getOrCreateChildWithName ("lastSize", nullptr);
-        return size.getProperty ("width", 450);
+        return size.getProperty ("width", 550);
     }
     int getEditorHeight()
     {
         const float ratio = 4.0/ 3.0;
         auto size = apvts.state.getOrCreateChildWithName ("lastSize", nullptr);
-        return size.getProperty ("height", 450.0 / ratio);
+        return size.getProperty ("height", 550.0 / ratio);
     }
 
     void setEditorSize (int width, int height)
